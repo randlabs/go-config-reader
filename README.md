@@ -1,2 +1,3 @@
 # go-config-reader
-Configuration settings generic reader
+
+Simple configuration reader used mostly in Randlabs.IO apps
