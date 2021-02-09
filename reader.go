@@ -116,15 +116,21 @@ func (cl *Loader) Load(settings interface{}) error {
 
 	// check for loader, if none provided, read from disk file
 	if cl.loader == nil {
-		var currentPath string
+		if !filepath.IsAbs(source) {
+			var currentPath string
 
-		currentPath, err = os.Getwd()
-		if err == nil {
-			source = filepath.Join(currentPath, source)
-			source, err = filepath.Abs(source)
+			currentPath, err = os.Getwd()
+			if err == nil {
+				source = filepath.Join(currentPath, source)
+			}
+		} else {
+			err = nil
 		}
 		if err == nil {
-			jsonContent, err = ioutil.ReadFile(source)
+			source, err = filepath.Abs(source)
+			if err == nil {
+				jsonContent, err = ioutil.ReadFile(source)
+			}
 		}
 	} else {
 		var content string
