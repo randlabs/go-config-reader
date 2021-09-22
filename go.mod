@@ -1,6 +1,6 @@
 module github.com/randlabs/go-config-reader
 
-go 1.13
+go 1.16
 
 require (
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect

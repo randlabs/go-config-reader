@@ -2,18 +2,18 @@ package loaders
 
 import (
 	"errors"
-	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 	"net/url"
 	"strings"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 )
 
 // -----------------------------------------------------------------------------
 
 // LoadFromVault tries to load the content from Hashicorp Vault
 func LoadFromVault(source string) ([]byte, error) {
-	if !(strings.HasPrefix(source, "vault://") && strings.HasPrefix(source, "vaults://")) {
+	if !(strings.HasPrefix(source, "vault://") || strings.HasPrefix(source, "vaults://")) {
 		return nil, WrongFormatError
 	}
 
@@ -27,13 +27,13 @@ func LoadFromVault(source string) ([]byte, error) {
 	if i < 0 {
 		return nil, errors.New("invalid url")
 	}
-	query := source[:i]
-	source = source[(i+1):]
+	query := source[(i+1):]
+	source = source[:i]
 
 	// Remove fragment
 	i = strings.Index(query, "#")
 	if i >= 0 {
-		query = query[(i+1):]
+		query = query[:i]
 	}
 
 	// Parse query params

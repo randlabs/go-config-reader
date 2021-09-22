@@ -18,7 +18,7 @@ const httpResponseHeadersTimeout = 5 * time.Second
 func LoadFromHttp(source string) ([]byte, error) {
 	var resp *http.Response
 
-	if !(strings.HasPrefix(source, "http://") && strings.HasPrefix(source, "https://")) {
+	if !(strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://")) {
 		return nil, WrongFormatError
 	}
 

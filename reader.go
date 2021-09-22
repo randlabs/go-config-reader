@@ -25,80 +25,39 @@ type LoaderCallback loaders.Callback
 
 // ExtendedValidator is the definition of the callback to call when extended validation is
 // needed
-type ExtendedValidator func(settings interface{}) error
+type ExtendedValidator func(settings interface{}, source string) error
 
-// Loader ...
-type Loader struct {
-	source              string
-	environmentVariable string
-	cmdLineParameter    string
-	loader              *loaders.Callback
-	schema              []byte
-	extendedValidator   *ExtendedValidator
-	settingsSource      string
+// Options indicates configurable loader options
+type Options struct {
+	Source              string // Optional embedded source.
+	EnvironmentVariable string // Environment variable that contains source.
+	CmdLineParameter    string // Command-line parameter that contains source. EnvVar has preference.
+	Callback            *loaders.Callback // Indicates a custom loader.
+	Schema              string // Specifies an optional schema validator.
+	ExtendedValidator   *ExtendedValidator // Specifies an extended settings validator.
 }
 
 //------------------------------------------------------------------------------
 
-// NewLoader creates a new configuration loader
-func NewLoader() *Loader {
-	return &Loader{}
-}
-
-// SetSource sets the settings source (mostly used for debugging)
-func (cl *Loader) SetSource(source string) {
-	cl.source = source
-}
-
-// SetEnvironmentVariable sets the environment variable which contains the settings source
-func (cl *Loader) SetEnvironmentVariable(envVar string) {
-	cl.environmentVariable = envVar
-}
-
-// SetCommandLineParameter sets the command-line option which contains the settings source
-func (cl *Loader) SetCommandLineParameter(cmdLineParam string) {
-	cl.cmdLineParameter = cmdLineParam
-}
-
-// SetCallback sets a custom settings loader
-func (cl *Loader) SetCallback(loader *LoaderCallback) {
-	cl.loader = (*loaders.Callback)(loader)
-}
-
-// SetSchema sets a json schema to validate used to settings
-func (cl *Loader) SetSchema(schema string) {
-	cl.schema = []byte(schema)
-}
-
-// SetExtendedValidator sets a validation function to be called after settings are loaded
-func (cl *Loader) SetExtendedValidator(validator *ExtendedValidator) {
-	cl.extendedValidator = validator
-}
-
-// GetSettingsSource gets the resolved source of the loaded settings
-func (cl *Loader) GetSettingsSource() string {
-	return cl.settingsSource
-}
-
-// Load settings from the specified source
-func (cl *Loader) Load(settings interface{}) error {
+// Load settings from the specified source.
+func Load(options Options, settings interface{}) error {
 	var encodedJSON []byte
 	var err error
 
 	// If a source was passed, use it
-	source := cl.source
+	source := options.Source
 
 	// If no source, try to get source from environment variable
-	if len(source) == 0 && len(cl.environmentVariable) > 0 {
-		source = os.Getenv(cl.environmentVariable)
+	if len(source) == 0 && len(options.EnvironmentVariable) > 0 {
+		source = os.Getenv(options.EnvironmentVariable)
 	}
 
 	// If still no source, parse command-line arguments
 	if len(source) == 0 {
 		cmdLineOption := "settings"
 
-		if len(cl.cmdLineParameter) > 0 {
-			cmdLineOption = cl.cmdLineParameter
+		if len(options.CmdLineParameter) > 0 {
+			cmdLineOption = options.CmdLineParameter
 		}
 
 		cmdLineOption = "--" + cmdLineOption
@@ -121,8 +80,8 @@ func (cl *Loader) Load(settings interface{}) error {
 	}
 
 	// Load content from callback if one was provided
-	if cl.loader != nil {
-		encodedJSON, err = loaders.LoadFromCallback(cl.loader, source)
+	if options.Callback != nil {
+		encodedJSON, err = loaders.LoadFromCallback(options.Callback, source)
 	} else {
 		encodedJSON, err = loaders.Load(source)
 	}
@@ -144,8 +103,8 @@ func (cl *Loader) Load(settings interface{}) error {
 	helpers.RemoveComments(encodedJSON)
 
 	// Validate against a schema if one is provided
-	if len(cl.schema) > 0 {
-		schema := cl.schema
+	if len(options.Schema) > 0 {
+		schema := []byte(options.Schema)
 
 		// Remove comments from schema and decode it
 		helpers.RemoveComments(schema)
@@ -173,14 +132,10 @@ func (cl *Loader) Load(settings interface{}) error {
 		return helpers.LoadError(err)
 	}
 
-	// Set the source before extended validator callback
-	cl.settingsSource = source
-
 	// Execute the extended validation if specified
-	if cl.extendedValidator != nil {
-		err = (*cl.extendedValidator)(settings)
+	if options.ExtendedValidator != nil {
+		err = (*options.ExtendedValidator)(settings, source)
 		if err != nil {
-			cl.settingsSource = ""
 			return helpers.LoadError(err)
 		}
 	}
@@ -202,7 +157,7 @@ func expandVars(data []byte, depth int) ([]byte, error) {
 	// Search for ${SRC:...} and ${ENV:...}
 	idx := 0
 	dataLen := len(data)
-	for idx < dataLen - 5 {
+	for idx < dataLen - 6 {
 		// Check for tag start
 		if data[idx] == '$' && data[idx + 1] == '{' && data[idx + 5] == ':' {
 			// Check for SRC (source) tag
@@ -232,6 +187,9 @@ func expandVars(data []byte, depth int) ([]byte, error) {
 				tmp := append(data[:idx], loadedData...)
 				data = append(tmp, data[(idx + 7 + len(source)):]...)
 
+				// Recalculate data length
+				dataLen = len(data)
+
 				// Advance cursor
 				idx += len(loadedData)
 
@@ -260,6 +218,9 @@ func expandVars(data []byte, depth int) ([]byte, error) {
 				// Replace tag with variable value
 				tmp := append(data[:idx], varValue...)
 				data = append(tmp, data[(idx + 7 + len(varName)):]...)
+
+				// Recalculate data length
+				dataLen = len(data)
 
 				// Advance cursor
 				idx += len(varValue)
