@@ -25,16 +25,16 @@ type LoaderCallback loaders.Callback
 
 // ExtendedValidator is the definition of the callback to call when extended validation is
 // needed
-type ExtendedValidator func(settings interface{}, source string) error
+type ExtendedValidator func(settings interface{}) error
 
 // Options indicates configurable loader options
 type Options struct {
 	Source              string // Optional embedded source.
 	EnvironmentVariable string // Environment variable that contains source.
 	CmdLineParameter    string // Command-line parameter that contains source. EnvVar has preference.
-	Callback            *loaders.Callback // Indicates a custom loader.
+	Callback            loaders.Callback // Indicates a custom loader.
 	Schema              string // Specifies an optional schema validator.
-	ExtendedValidator   *ExtendedValidator // Specifies an extended settings validator.
+	ExtendedValidator   ExtendedValidator // Specifies an extended settings validator.
 }
 
 //------------------------------------------------------------------------------
@@ -134,7 +134,7 @@ func Load(options Options, settings interface{}) error {
 
 	// Execute the extended validation if specified
 	if options.ExtendedValidator != nil {
-		err = (*options.ExtendedValidator)(settings, source)
+		err = options.ExtendedValidator(settings)
 		if err != nil {
 			return helpers.LoadError(err)
 		}
