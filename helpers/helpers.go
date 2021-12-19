@@ -23,26 +23,26 @@ func RemoveComments(data []byte) {
 			if ch == '"' {
 				state = 1 // Start of quoted value
 			} else if ch == '/' {
-				if index + 1 < dataLength {
-					switch data[index + 1] {
+				if index+1 < dataLength {
+					switch data[index+1] {
 					case '/':
-						state = 2 // Start of single line comment
-						data[index] = ' '
+						state = 2         // Start of single line comment
+						data[index] = ' ' //Remove comment start
 						index += 1
-						data[index] = ' '
+						data[index] = ' ' //Remove comment start
 
 					case '*':
-						state = 3 // Start of multiple line comment
-						data[index] = ' '
+						state = 3         // Start of multiple line comment
+						data[index] = ' ' //Remove comment start
 						index += 1
-						data[index] = ' '
+						data[index] = ' ' //Remove comment start
 					}
 				}
 			}
 
 		case 1: // Inside quoted value
 			if ch == '\\' {
-				if index + 1 < dataLength {
+				if index+1 < dataLength {
 					index += 1 // Escaped character
 				}
 			} else if ch == '"' {
@@ -56,10 +56,12 @@ func RemoveComments(data []byte) {
 				data[index] = ' ' // Remove comment
 			}
 
-		case 3: // Multiple line comment
-			if ch == '*' && index + 1 < dataLength && data[index + 1] == '/' {
-				state = 0 // End of single line comment
+		case 3: // Multi line comment
+			if ch == '*' && index+1 < dataLength && data[index+1] == '/' {
+				state = 0         // End of multi line comment
+				data[index] = ' ' // Remove comment end
 				index += 1
+				data[index] = ' ' // Remove comment end
 			} else {
 				data[index] = ' ' // Remove comment
 			}

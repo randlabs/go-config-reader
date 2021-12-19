@@ -1,6 +1,7 @@
 package loaders
 
 import (
+	"context"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -10,7 +11,9 @@ import (
 // -----------------------------------------------------------------------------
 
 // LoadFromFile tries to load the content from a file
-func LoadFromFile(source string) ([]byte, error) {
+func LoadFromFile(_ context.Context, source string) ([]byte, error) {
+	// NOTE: We are not making use of the context assuming configuration files will be small and on a local disk
+
 	var err error
 
 	if strings.HasPrefix(source, "file://") {

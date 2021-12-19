@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-const httpRequestTimeout = 20 * time.Second
+const httpRequestTimeout = 10 * time.Second
 const httpResponseHeadersTimeout = 5 * time.Second
 
 // -----------------------------------------------------------------------------
 
 // LoadFromHttp tries to load the content from a web url
-func LoadFromHttp(source string) ([]byte, error) {
+func LoadFromHttp(ctx context.Context, source string) ([]byte, error) {
 	var resp *http.Response
 
 	if !(strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://")) {
@@ -42,9 +42,9 @@ func LoadFromHttp(source string) ([]byte, error) {
 	}
 
 	// Execute request
-	ctx, ctxCancel := context.WithTimeout(context.Background(), httpRequestTimeout)
+	ctxWithTimeout, ctxCancel := context.WithTimeout(ctx, httpRequestTimeout)
 	defer ctxCancel()
-	resp, err = client.Do(req.WithContext(ctx))
+	resp, err = client.Do(req.WithContext(ctxWithTimeout))
 	if err != nil {
 		return nil, err
 	}

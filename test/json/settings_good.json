@@ -3,6 +3,7 @@
 	"integerValue": 100,
 	"floatValue": 100.3,
 
+	// This is a single line comment
 	"server": {
 		"ip": "127.0.0.1",
 		"port": 8001,
@@ -12,6 +13,9 @@
 		]
 	},
 
+	/*
+	This is a multi line comment
+	*/
 	"node": {
 		"url": "http://127.0.0.1:8003",
 		"apiToken": "some-api-access-token"

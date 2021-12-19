@@ -29,12 +29,14 @@ type ExtendedValidator func(settings interface{}) error
 
 // Options indicates configurable loader options
 type Options struct {
-	Source              string // Optional embedded source.
-	EnvironmentVariable string // Environment variable that contains source.
-	CmdLineParameter    string // Command-line parameter that contains source. EnvVar has preference.
-	Callback            loaders.Callback // Indicates a custom loader.
-	Schema              string // Specifies an optional schema validator.
-	ExtendedValidator   ExtendedValidator // Specifies an extended settings validator.
+	Source                string            // Optional embedded source.
+	EnvironmentVariable   string            // Environment variable that contains source.
+	CmdLineParameter      *string           // Long and short command-line parameters that contains source. Set to
+	CmdLineParameterShort *string           //     empty to disable. Environment variable has preference.
+	Callback              loaders.Callback  // Indicates a custom loader.
+	Schema                string            // Specifies an optional schema validator.
+	ExtendedValidator     ExtendedValidator // Specifies an extended settings validator.
+	Context               context.Context   // Optional context
 }
 
 //------------------------------------------------------------------------------
@@ -43,6 +45,11 @@ type Options struct {
 func Load(options Options, settings interface{}) error {
 	var encodedJSON []byte
 	var err error
+
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
 
 	// If a source was passed, use it
 	source := options.Source
@@ -54,22 +61,37 @@ func Load(options Options, settings interface{}) error {
 
 	// If still no source, parse command-line arguments
 	if len(source) == 0 {
-		cmdLineOption := "settings"
+		cmdLineOption := "--settings"
+		cmdLineOptionShort := "-S"
+		hasCmdLineOption := true
+		hasCmdLineOptionShort := true
 
-		if len(options.CmdLineParameter) > 0 {
-			cmdLineOption = options.CmdLineParameter
+		if options.CmdLineParameter != nil {
+			if len(*options.CmdLineParameter) > 0 {
+				cmdLineOption = "--" + *options.CmdLineParameter
+			} else {
+				hasCmdLineOption = false
+			}
+		}
+		if options.CmdLineParameterShort != nil {
+			if len(*options.CmdLineParameterShort) > 0 {
+				cmdLineOptionShort = "-" + *options.CmdLineParameterShort
+			} else {
+				hasCmdLineOptionShort = false
+			}
 		}
 
-		cmdLineOption = "--" + cmdLineOption
-
-		//lookup the command-line parameter
-		for idx, value := range os.Args[1:] {
-			if value == cmdLineOption {
-				if idx + 2 >= len(os.Args) {
-					return errors.New("missing source in '" + cmdLineOption + "' parameter.")
+		// Lookup the command-line parameter
+		if hasCmdLineOption || hasCmdLineOptionShort {
+			for idx, value := range os.Args[1:] {
+				if (hasCmdLineOption && value == cmdLineOption) ||
+					(hasCmdLineOptionShort && value == cmdLineOptionShort) {
+					if idx+2 >= len(os.Args) {
+						return errors.New("missing source in '" + value + "' parameter.")
+					}
+					source = os.Args[idx+2]
+					break
 				}
-				source = os.Args[idx + 2]
-				break
 			}
 		}
 	}
@@ -83,7 +105,7 @@ func Load(options Options, settings interface{}) error {
 	if options.Callback != nil {
 		encodedJSON, err = loaders.LoadFromCallback(options.Callback, source)
 	} else {
-		encodedJSON, err = loaders.Load(source)
+		encodedJSON, err = loaders.Load(ctx, source)
 	}
 	if err != nil {
 		return helpers.LoadError(err)
@@ -94,7 +116,7 @@ func Load(options Options, settings interface{}) error {
 	}
 
 	// Expand variables embedded inside loaded json
-	encodedJSON, err = expandVars(encodedJSON, 1)
+	encodedJSON, err = expandVars(ctx, encodedJSON, 1)
 	if err != nil {
 		return helpers.LoadError(err)
 	}
@@ -147,7 +169,7 @@ func Load(options Options, settings interface{}) error {
 // -----------------------------------------------------------------------------
 // Private functions
 
-func expandVars(data []byte, depth int) ([]byte, error) {
+func expandVars(ctx context.Context, data []byte, depth int) ([]byte, error) {
 	var err error
 
 	if depth > maxExpansionLevels {
@@ -157,35 +179,35 @@ func expandVars(data []byte, depth int) ([]byte, error) {
 	// Search for ${SRC:...} and ${ENV:...}
 	idx := 0
 	dataLen := len(data)
-	for idx < dataLen - 6 {
+	for idx < dataLen-6 {
 		// Check for tag start
-		if data[idx] == '$' && data[idx + 1] == '{' && data[idx + 5] == ':' {
+		if data[idx] == '$' && data[idx+1] == '{' && data[idx+5] == ':' {
 			// Check for SRC (source) tag
-			if data[idx + 2] == 'S' && data[idx + 3] == 'R' && data[idx + 4] == 'C' {
+			if data[idx+2] == 'S' && data[idx+3] == 'R' && data[idx+4] == 'C' {
 				var source string
 				var loadedData []byte
 
 				// Get the source
-				source, err = getSource(data, idx + 6, dataLen)
+				source, err = getSource(data, idx+6, dataLen)
 				if err != nil {
 					return nil, err
 				}
 
 				// Load data from the specified source
-				loadedData, err = loaders.Load(source)
+				loadedData, err = loaders.Load(ctx, source)
 				if err != nil {
 					return nil, err
 				}
 
 				// Recursively expand variables inside loaded data
-				loadedData, err = expandVars(loadedData, depth + 1)
+				loadedData, err = expandVars(ctx, loadedData, depth+1)
 				if err != nil {
 					return nil, err
 				}
 
 				// Replace tag with loaded data
 				tmp := append(data[:idx], loadedData...)
-				data = append(tmp, data[(idx + 7 + len(source)):]...)
+				data = append(tmp, data[(idx+7+len(source)):]...)
 
 				// Recalculate data length
 				dataLen = len(data)
@@ -193,12 +215,12 @@ func expandVars(data []byte, depth int) ([]byte, error) {
 				// Advance cursor
 				idx += len(loadedData)
 
-			// Check for ENV (environment) tag
-			} else if data[idx + 2] == 'E' && data[idx + 3] == 'N' && data[idx + 4] == 'V' {
+				// Check for ENV (environment) tag
+			} else if data[idx+2] == 'E' && data[idx+3] == 'N' && data[idx+4] == 'V' {
 				var varName string
 
 				// Get variable name
-				varName, err = getSource(data, idx + 6, dataLen)
+				varName, err = getSource(data, idx+6, dataLen)
 				if err != nil {
 					return nil, err
 				}
@@ -210,14 +232,14 @@ func expandVars(data []byte, depth int) ([]byte, error) {
 				}
 
 				// Recursively expand variables inside loaded data
-				varValue, err = expandVars(varValue, depth + 1)
+				varValue, err = expandVars(ctx, varValue, depth+1)
 				if err != nil {
 					return nil, err
 				}
 
 				// Replace tag with variable value
 				tmp := append(data[:idx], varValue...)
-				data = append(tmp, data[(idx + 7 + len(varName)):]...)
+				data = append(tmp, data[(idx+7+len(varName)):]...)
 
 				// Recalculate data length
 				dataLen = len(data)
@@ -243,13 +265,13 @@ func expandVars(data []byte, depth int) ([]byte, error) {
 func getSource(data []byte, pos int, dataLen int) (string, error) {
 	// Calculate source length and look for terminator
 	size := 0
-	for pos + size < dataLen && data[pos + size] != '}' {
+	for pos+size < dataLen && data[pos+size] != '}' {
 		size += 1
 	}
-	if pos + size >= dataLen {
+	if pos+size >= dataLen {
 		return "", errors.New("error parsing variable")
 	}
 
 	// Return source
-	return string(data[pos:(pos+size)]), nil
+	return string(data[pos:(pos + size)]), nil
 }
