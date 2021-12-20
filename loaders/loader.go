@@ -1,14 +1,16 @@
 package loaders
 
+import "context"
+
 // -----------------------------------------------------------------------------
 
-func Load(source string) (encodedJSON []byte, err error) {
+func Load(ctx context.Context, source string) (encodedJSON []byte, err error) {
 	// Try to load from web
-	encodedJSON, err = LoadFromHttp(source)
+	encodedJSON, err = LoadFromHttp(ctx, source)
 
 	if err == WrongFormatError {
 		// If source is not a web url, try to load from hashicorp vault url
-		encodedJSON, err = LoadFromVault(source)
+		encodedJSON, err = LoadFromVault(ctx, source)
 	}
 
 	if err == WrongFormatError {
@@ -18,7 +20,7 @@ func Load(source string) (encodedJSON []byte, err error) {
 
 	if err == WrongFormatError {
 		// At last, try to load from a file
-		encodedJSON, err = LoadFromFile(source)
+		encodedJSON, err = LoadFromFile(ctx, source)
 	}
 
 	// Done
