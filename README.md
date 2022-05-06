@@ -8,7 +8,7 @@ Simple configuration reader and validator that accepts a variety of sources.
 
 ```golang
 import (
-cf "github.com/randlabs/go-config-reader"
+        cf "github.com/randlabs/go-config-reader"
 )
 ```
 
@@ -16,9 +16,9 @@ cf "github.com/randlabs/go-config-reader"
 
 ```golang
 type ConfigurationSettings struct {
-Name         string  `json:"name"`
-IntegerValue int     `json:"integerValue"`
-FloatValue   float64 `json:"floatValue"`
+        Name         string  `json:"name"`
+        IntegerValue int     `json:"integerValue"`
+        FloatValue   float64 `json:"floatValue"`
 }
 ```
 
@@ -32,7 +32,7 @@ settings := ConfigurationSettings{}
 
 ```golang
 opts := cf.Options{
-Source: "/tmp/settings.json"",
+        Source: "/tmp/settings.json"",
 }
 ```
 
@@ -41,7 +41,7 @@ Source: "/tmp/settings.json"",
 ```golang
 err := cf.Load(opts, &settings)
 if err != nil {
-return err
+        return err
 }
 ```
 
