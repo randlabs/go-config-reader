@@ -1,6 +1,9 @@
 package go_config_reader
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/qri-io/jsonschema"
 )
 
@@ -15,9 +18,17 @@ type ValidationErrorFailure struct {
 	Message  string
 }
 
+// -----------------------------------------------------------------------------
+
+var WrongFormatError = errors.New("wrong format")
+
 //------------------------------------------------------------------------------
 
-func NewValidationError(errors []jsonschema.KeyError) *ValidationError {
+func newLoadError(err error) error {
+	return fmt.Errorf("unable to load configuration [%v]", err)
+}
+
+func newValidationError(errors []jsonschema.KeyError) *ValidationError {
 	err := ValidationError{
 		Failures: make([]ValidationErrorFailure, len(errors)),
 	}

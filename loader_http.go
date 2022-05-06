@@ -1,4 +1,4 @@
-package loaders
+package go_config_reader
 
 import (
 	"context"
@@ -9,13 +9,15 @@ import (
 	"time"
 )
 
-const httpRequestTimeout = 10 * time.Second
-const httpResponseHeadersTimeout = 5 * time.Second
+const (
+	httpRequestTimeout         = 10 * time.Second
+	httpResponseHeadersTimeout = 5 * time.Second
+)
 
 // -----------------------------------------------------------------------------
 
-// LoadFromHttp tries to load the content from a web url
-func LoadFromHttp(ctx context.Context, source string) ([]byte, error) {
+// loadFromHttp tries to load the content from a web url
+func loadFromHttp(ctx context.Context, source string) ([]byte, error) {
 	var resp *http.Response
 
 	if !(strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://")) {

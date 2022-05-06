@@ -1,14 +1,17 @@
-package go_config_reader
+package go_config_reader_test
 
 import (
+	"errors"
 	"testing"
+
+	cf "github.com/randlabs/go-config-reader"
 )
 
 //------------------------------------------------------------------------------
 
 type TestSettings struct {
-	Name         string `json:"name"`
-	IntegerValue int `json:"integerValue"`
+	Name         string  `json:"name"`
+	IntegerValue int     `json:"integerValue"`
 	FloatValue   float64 `json:"floatValue"`
 
 	Server TestSettingsServer `json:"server"`
@@ -19,9 +22,9 @@ type TestSettings struct {
 }
 
 type TestSettingsServer struct {
-	Ip               string `json:"ip"`
-	Port             int `json:"port"`
-	PoolSize         int `json:"poolSize"`
+	Ip               string   `json:"ip"`
+	Port             int      `json:"port"`
+	PoolSize         int      `json:"poolSize"`
 	AllowedAddresses []string `json:"allowedAddresses"`
 }
 
@@ -200,21 +203,21 @@ var badSettingsJSON = `{
 	}
 }`
 
-var goodSettings = &TestSettings{
-	Name: "string test",
+var goodSettings = TestSettings{
+	Name:         "string test",
 	IntegerValue: 100,
-	FloatValue: 100.3,
+	FloatValue:   100.3,
 	Server: TestSettingsServer{
-		Ip: "127.0.0.1",
-		Port: 8001,
-		PoolSize: 64,
-		AllowedAddresses: []string{ "127.0.0.1", "::1" },
+		Ip:               "127.0.0.1",
+		Port:             8001,
+		PoolSize:         64,
+		AllowedAddresses: []string{"127.0.0.1", "::1"},
 	},
 	Node: TestSettingsNode{
-		Url: "http://127.0.0.1:8003",
+		Url:      "http://127.0.0.1:8003",
 		ApiToken: "some-api-access-token",
 	},
-	MongoDB: TestSettingsMongoDB {
+	MongoDB: TestSettingsMongoDB{
 		Url: "mongodb://user:pass@127.0.0.1:27017/sample_database?replSet=rs0",
 	},
 }
@@ -222,10 +225,11 @@ var goodSettings = &TestSettings{
 //------------------------------------------------------------------------------
 
 func dumpValidationErrors(t *testing.T, err error) {
-	e, ok := err.(*ValidationError)
-	if ok {
-		t.Logf("  Validation errors:")
-		for _, f := range e.Failures {
+	var vErr *cf.ValidationError
+
+	if errors.As(err, &vErr) {
+		t.Logf("validation errors:")
+		for _, f := range vErr.Failures {
 			t.Logf("  %v @ %v", f.Message, f.Location)
 		}
 	}

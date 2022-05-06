@@ -1,40 +1,39 @@
-package go_config_reader
+package go_config_reader_test
 
 import (
 	"reflect"
 	"testing"
+
+	cf "github.com/randlabs/go-config-reader"
 )
 
 //------------------------------------------------------------------------------
 
 func TestWellformedWithSchema(t *testing.T) {
 	// Load configuration
-	settings := &TestSettings{}
-	err := Load(Options{
-		Source:  goodSettingsJSON,
-		Schema:  schemaJSON,
-	}, settings)
+	settings := TestSettings{}
+	err := cf.Load(cf.Options{
+		Source: goodSettingsJSON,
+		Schema: schemaJSON,
+	}, &settings)
 	if err != nil {
-		t.Errorf("unable to load settings [%v]", err)
-		return
+		t.Fatalf("unable to load settings [%v]", err)
 	}
 
 	if !reflect.DeepEqual(settings, goodSettings) {
-		t.Errorf("settings mismatch")
-		return
+		t.Fatalf("settings mismatch")
 	}
 }
 
 func TestMalformedWithSchema(t *testing.T) {
 	// Load configuration
-	settings := &TestSettings{}
-	err := Load(Options{
-		Source:  badSettingsJSON,
-		Schema:  schemaJSON,
-	}, settings)
+	settings := TestSettings{}
+	err := cf.Load(cf.Options{
+		Source: badSettingsJSON,
+		Schema: schemaJSON,
+	}, &settings)
 	if err == nil {
-		t.Errorf("unexpected success")
-		return
+		t.Fatalf("unexpected success")
 	}
 
 	dumpValidationErrors(t, err)

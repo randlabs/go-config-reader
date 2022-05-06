@@ -1,4 +1,4 @@
-package loaders
+package go_config_reader
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 
 // -----------------------------------------------------------------------------
 
-// LoadFromVault tries to load the content from Hashicorp Vault
-func LoadFromVault(ctx context.Context, source string) ([]byte, error) {
+// loadFromVault tries to load the content from Hashicorp Vault
+func loadFromVault(ctx context.Context, source string) ([]byte, error) {
 	if !(strings.HasPrefix(source, "vault://") || strings.HasPrefix(source, "vaults://")) {
 		return nil, WrongFormatError
 	}

@@ -1,26 +1,26 @@
-package loaders
+package go_config_reader
 
 import "context"
 
 // -----------------------------------------------------------------------------
 
-func Load(ctx context.Context, source string) (encodedJSON []byte, err error) {
+func internalLoad(ctx context.Context, source string) (encodedJSON []byte, err error) {
 	// Try to load from web
-	encodedJSON, err = LoadFromHttp(ctx, source)
+	encodedJSON, err = loadFromHttp(ctx, source)
 
 	if err == WrongFormatError {
 		// If source is not a web url, try to load from hashicorp vault url
-		encodedJSON, err = LoadFromVault(ctx, source)
+		encodedJSON, err = loadFromVault(ctx, source)
 	}
 
 	if err == WrongFormatError {
 		// If source is not a hashicorp vault url, try to load from a data url
-		encodedJSON, err = LoadFromData(source)
+		encodedJSON, err = loadFromData(source)
 	}
 
 	if err == WrongFormatError {
 		// At last, try to load from a file
-		encodedJSON, err = LoadFromFile(ctx, source)
+		encodedJSON, err = loadFromFile(ctx, source)
 	}
 
 	// Done
