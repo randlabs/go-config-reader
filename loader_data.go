@@ -1,4 +1,4 @@
-package loaders
+package go_config_reader
 
 import (
 	"strings"
@@ -6,8 +6,8 @@ import (
 
 // -----------------------------------------------------------------------------
 
-// LoadFromData tries to load the content from a data url or tries to guess a JSON
-func LoadFromData(source string) ([]byte, error) {
+// loadFromData tries to load the content from a data url or tries to guess a JSON
+func loadFromData(source string) ([]byte, error) {
 	if strings.HasPrefix(source, "data://") {
 		return []byte(source[7:]), nil
 	}

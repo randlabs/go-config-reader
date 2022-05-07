@@ -1,16 +1,8 @@
-package helpers
-
-import (
-	"fmt"
-)
+package go_config_reader
 
 // -----------------------------------------------------------------------------
 
-func LoadError(err error) error {
-	return fmt.Errorf("unable to load configuration [%v]", err)
-}
-
-func RemoveComments(data []byte) {
+func removeComments(data []byte) {
 	state := 0
 
 	dataLength := len(data)

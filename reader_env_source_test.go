@@ -1,9 +1,11 @@
-package go_config_reader
+package go_config_reader_test
 
 import (
 	"os"
 	"reflect"
 	"testing"
+
+	cf "github.com/randlabs/go-config-reader"
 )
 
 //------------------------------------------------------------------------------
@@ -15,22 +17,20 @@ func TestEnvironmentVariableSource(t *testing.T) {
 	}(os.Getenv("GO_READER_TEST"))
 
 	// Save the data stream into test environment variable
-	_ = os.Setenv("GO_READER_TEST", "data://" + goodSettingsJSON)
+	_ = os.Setenv("GO_READER_TEST", "data://"+goodSettingsJSON)
 
 	// Load configuration from data stream
-	settings := &TestSettings{}
-	err := Load(Options{
+	settings := TestSettings{}
+	err := cf.Load(cf.Options{
 		EnvironmentVariable: "GO_READER_TEST",
 		Schema:              schemaJSON,
-	}, settings)
+	}, &settings)
 	if err != nil {
-		t.Errorf("unable to load settings [%v]", err)
-		return
+		t.Fatalf("unable to load settings [err=%v]", err)
 	}
 
 	// Check if settings are the expected
 	if !reflect.DeepEqual(settings, goodSettings) {
-		t.Errorf("settings mismatch")
-		return
+		t.Fatalf("settings mismatch")
 	}
 }

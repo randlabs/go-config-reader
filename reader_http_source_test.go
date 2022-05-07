@@ -1,10 +1,12 @@
-package go_config_reader
+package go_config_reader_test
 
 import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 	"testing"
+
+	cf "github.com/randlabs/go-config-reader"
 )
 
 //------------------------------------------------------------------------------
@@ -13,40 +15,35 @@ func TestHttpSource(t *testing.T) {
 	// Create a test http server
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Route
-		if r.URL != nil {
-			if r.Method == "GET" {
-				if r.URL.Path == "/settings" {
-					w.WriteHeader(http.StatusOK)
-					w.Header().Set("Content-Type", "application/json")
-					_, _ = w.Write([]byte(goodSettingsJSON))
-					return
-				}
+		switch r.Method {
+		case "GET":
+			switch r.URL.Path {
+			case "/settings":
+				w.WriteHeader(http.StatusOK)
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(goodSettingsJSON))
+				return
 			}
 		}
 
 		// Else return bad request
 		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("bad request"))
 	}))
-	defer func() {
-		svr.Close()
-	}()
+	defer svr.Close()
 
 	// Load configuration from web
-	settings := &TestSettings{}
-	err := Load(Options{
-		Source:  svr.URL + "/settings",
-		Schema:  schemaJSON,
-	}, settings)
+	settings := TestSettings{}
+	err := cf.Load(cf.Options{
+		Source: svr.URL + "/settings",
+		Schema: schemaJSON,
+	}, &settings)
 	if err != nil {
-		t.Errorf("unable to load settings [%v]", err)
-		return
+		t.Fatalf("unable to load settings [err=%v]", err)
 	}
 
 	// Check if settings are the expected
 	if !reflect.DeepEqual(settings, goodSettings) {
-		t.Errorf("settings mismatch")
-		return
+		t.Fatalf("settings mismatch")
 	}
 }
