@@ -12,9 +12,7 @@ import (
 
 func TestEnvironmentVariableSource(t *testing.T) {
 	// Save test environment variable and restore on exit
-	defer func(oldGoReaderTestEnv string) {
-		_ = os.Setenv("GO_READER_TEST", oldGoReaderTestEnv)
-	}(os.Getenv("GO_READER_TEST"))
+	defer scopedEnvVar("GO_READER_TEST")()
 
 	// Save the data stream into test environment variable
 	_ = os.Setenv("GO_READER_TEST", "data://"+goodSettingsJSON)

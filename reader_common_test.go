@@ -2,6 +2,7 @@ package go_config_reader_test
 
 import (
 	"errors"
+	"os"
 	"testing"
 
 	cf "github.com/randlabs/go-config-reader"
@@ -223,6 +224,13 @@ var goodSettings = TestSettings{
 }
 
 //------------------------------------------------------------------------------
+
+func scopedEnvVar(varName string) func() {
+	origValue := os.Getenv(varName)
+	return func() {
+		_ = os.Setenv(varName, origValue)
+	}
+}
 
 func dumpValidationErrors(t *testing.T, err error) {
 	var vErr *cf.ValidationError

@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
+
+	"github.com/randlabs/go-config-reader/internal/preprocessor"
 )
 
 // -----------------------------------------------------------------------------
@@ -16,108 +19,69 @@ const (
 // -----------------------------------------------------------------------------
 
 func expandVars(ctx context.Context, data []byte, depth int) ([]byte, error) {
-	var err error
+	var expandedTagContent []byte
+	var replacement []byte
 
+	// Check recursion limits
 	if depth > maxExpansionLevels {
 		return nil, errors.New("too many expansion levels")
 	}
 
-	// Search for ${SRC:...} and ${ENV:...}
-	idx := 0
-	dataLen := len(data)
-	for idx < dataLen-6 {
-		// Check for tag start
-		if data[idx] == '$' && data[idx+1] == '{' && data[idx+5] == ':' {
-			// Check for SRC (source) tag
-			if data[idx+2] == 'S' && data[idx+3] == 'R' && data[idx+4] == 'C' {
-				var source string
-				var loadedData []byte
+	// Create a new data processor
+	p := preprocessor.New(data)
 
-				// Get the source
-				source, err = getSource(data, idx+6, dataLen)
-				if err != nil {
-					return nil, err
-				}
+	// Loop
+	for {
+		// Get the next tag
+		ti, err := p.NextTag()
+		if err != nil {
+			// If we reach the end, return buffer
+			if err == io.EOF {
+				break
 
-				// Load data from the specified source
-				loadedData, err = internalLoad(ctx, source)
-				if err != nil {
-					return nil, err
-				}
-
-				// Recursively expand variables inside loaded data
-				loadedData, err = expandVars(ctx, loadedData, depth+1)
-				if err != nil {
-					return nil, err
-				}
-
-				// Replace tag with loaded data
-				tmp := append(data[:idx], loadedData...)
-				data = append(tmp, data[(idx+7+len(source)):]...)
-
-				// Recalculate data length
-				dataLen = len(data)
-
-				// Advance cursor
-				idx += len(loadedData)
-
-				// Check for ENV (environment) tag
-			} else if data[idx+2] == 'E' && data[idx+3] == 'N' && data[idx+4] == 'V' {
-				var varName string
-
-				// Get variable name
-				varName, err = getSource(data, idx+6, dataLen)
-				if err != nil {
-					return nil, err
-				}
-
-				// Get value from environment strings
-				varValue := []byte(os.Getenv(varName))
-				if len(varValue) == 0 {
-					return nil, fmt.Errorf("environment variable '%v' not found", varName)
-				}
-
-				// Recursively expand variables inside loaded data
-				varValue, err = expandVars(ctx, varValue, depth+1)
-				if err != nil {
-					return nil, err
-				}
-
-				// Replace tag with variable value
-				tmp := append(data[:idx], varValue...)
-				data = append(tmp, data[(idx+7+len(varName)):]...)
-
-				// Recalculate data length
-				dataLen = len(data)
-
-				// Advance cursor
-				idx += len(varValue)
-
-			} else {
-				// Not a valid tag, advance cursor
-				idx += 1
 			}
 
-		} else {
-			// No tag, advance cursor
-			idx += 1
+			// Else the error
+			return nil, err
 		}
+
+		// Expand variables that may appear inside the found content
+		expandedTagContent, err = expandVars(ctx, ti.Content, depth+1)
+		if err != nil {
+			return nil, err
+		}
+
+		// Process tag
+		switch ti.Tag {
+		case preprocessor.TagSRC:
+			// Load data from the specified source
+			replacement, err = internalLoad(ctx, string(expandedTagContent))
+			if err != nil {
+				return nil, err
+			}
+
+		case preprocessor.TagENV:
+			// Get value from environment strings
+			v, found := os.LookupEnv(string(expandedTagContent))
+			if !found {
+				return nil, fmt.Errorf("environment variable '%v' not set", string(expandedTagContent))
+			}
+			replacement = []byte(v)
+
+		default:
+			return nil, errors.New("unexpected")
+		}
+
+		// Recursively expand variables inside loaded data
+		replacement, err = expandVars(ctx, replacement, depth+1)
+		if err != nil {
+			return nil, err
+		}
+
+		// Execute replacement
+		ti.Replace(replacement)
 	}
 
 	// Done
-	return data, nil
-}
-
-func getSource(data []byte, pos int, dataLen int) (string, error) {
-	// Calculate source length and look for terminator
-	size := 0
-	for pos+size < dataLen && data[pos+size] != '}' {
-		size += 1
-	}
-	if pos+size >= dataLen {
-		return "", errors.New("error parsing variable")
-	}
-
-	// Return source
-	return string(data[pos:(pos + size)]), nil
+	return p.Data, nil
 }

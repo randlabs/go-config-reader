@@ -1,20 +1,24 @@
 package go_config_reader
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
-	"io"
 	"net/url"
 	"strings"
 
 	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/sdk/helper/jsonutil"
 )
 
 // -----------------------------------------------------------------------------
 
 // loadFromVault tries to load the content from Hashicorp Vault
 func loadFromVault(ctx context.Context, source string) ([]byte, error) {
+	var client *api.Client
+	var secret *api.Secret
+	var buf bytes.Buffer
+
 	if !(strings.HasPrefix(source, "vault://") || strings.HasPrefix(source, "vaults://")) {
 		return nil, WrongFormatError
 	}
@@ -44,13 +48,29 @@ func loadFromVault(ctx context.Context, source string) ([]byte, error) {
 	// Extract required parameters
 	token := ""
 	path := ""
+	keys := make([]string, 0)
 	for k, v := range queryMap {
 		if len(v) > 0 {
 			switch k {
 			case "token":
+				// Set token
 				token = v[0]
+
 			case "path":
+				// Set path
 				path = v[0]
+
+			case "key":
+				// Set and validate key
+				keys = strings.SplitN(v[0], "/", -1)
+				if len(keys) == 0 {
+					return nil, errors.New("invalid key")
+				}
+				for _, key := range keys {
+					if len(key) == 0 {
+						return nil, errors.New("invalid key")
+					}
+				}
 			}
 		}
 	}
@@ -66,7 +86,6 @@ func loadFromVault(ctx context.Context, source string) ([]byte, error) {
 	}
 
 	// Create accessor
-	var client *api.Client
 	client, err = api.NewClient(&api.Config{
 		Address: source,
 	})
@@ -76,33 +95,7 @@ func loadFromVault(ctx context.Context, source string) ([]byte, error) {
 	client.SetToken(token)
 
 	// Read secret
-
-	// NOTE: We have to duplicate the 'secret, err = client.Logical().Read(path)' behavior in order to use our
-	//       custom context. The code below is a bit optimized version of the Vault's one and with better error
-	//       handling (2021/12/19)
-	var secret *api.Secret
-
-	req := client.NewRequest("GET", "/v1/"+path)
-
-	var resp *api.Response
-	resp, err = client.RawRequestWithContext(ctx, req)
-	if resp != nil {
-		defer func() {
-			_ = resp.Body.Close()
-		}()
-
-		secret, err = api.ParseSecret(resp.Body)
-
-		if resp.StatusCode == 404 {
-			if err == nil {
-				if !(secret != nil && (len(secret.Warnings) > 0 || len(secret.Data) > 0)) {
-					secret = nil
-				}
-			} else if err == io.EOF {
-				err = nil
-			}
-		}
-	}
+	secret, err = client.Logical().ReadWithContext(ctx, path)
 	if err != nil {
 		return nil, err
 	}
@@ -118,6 +111,49 @@ func loadFromVault(ctx context.Context, source string) ([]byte, error) {
 		return nil, errors.New("data not found")
 	}
 
-	// Done (re-encode for further processing)
-	return jsonutil.EncodeJSON(data)
+	// Prepare re-encoded for further processing
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+
+	// Was a key specified?
+	if len(keys) == 0 {
+		// No, encode the whole data
+		err = enc.Encode(data)
+	} else {
+		var value interface{}
+
+		// Yes, transverse it
+		keysLength := len(keys)
+		for keyIdx := 0; keyIdx < keysLength-1; keyIdx++ {
+			data, ok = data[keys[keyIdx]].(map[string]interface{})
+			if !ok || data == nil {
+				return nil, errors.New("key not found")
+			}
+		}
+
+		// Get the final value
+		value, ok = data[keys[keysLength-1]]
+		if !ok || value == nil {
+			return nil, errors.New("key not found")
+		}
+
+		// Check special cases
+		switch value.(type) {
+		case string:
+			return []byte(value.(string)), nil
+		case *string:
+			return []byte(*(value.(*string))), nil
+		}
+
+		// Encode the rest
+		err = enc.Encode(value)
+	}
+
+	// Check for encoding errors
+	if err != nil {
+		return nil, err
+	}
+
+	// Done
+	return buf.Bytes(), nil
 }
