@@ -15,7 +15,7 @@ func TestFileSource(t *testing.T) {
 	// Create a new temporary file
 	file, err := ioutil.TempFile("", "cr")
 	if err != nil {
-		t.Fatalf("unable to create temporary file [%v]", err)
+		t.Fatalf("unable to create temporary file [err=%v]", err)
 	}
 	defer func() {
 		_ = os.Remove(file.Name())
@@ -24,7 +24,7 @@ func TestFileSource(t *testing.T) {
 	// Save good settings on it
 	_, err = file.Write([]byte(goodSettingsJSON))
 	if err != nil {
-		t.Fatalf("unable to save good settings json [%v]", err)
+		t.Fatalf("unable to save good settings json [err=%v]", err)
 	}
 
 	// Load configuration from file
@@ -34,7 +34,7 @@ func TestFileSource(t *testing.T) {
 		Schema: schemaJSON,
 	}, &settings)
 	if err != nil {
-		t.Fatalf("unable to load settings [%v]", err)
+		t.Fatalf("unable to load settings [err=%v]", err)
 	}
 
 	// Check if settings are the expected

@@ -1,6 +1,7 @@
 package go_config_reader_test
 
 import (
+	"bytes"
 	"os"
 	"reflect"
 	"strings"
@@ -11,65 +12,47 @@ import (
 
 //------------------------------------------------------------------------------
 
-func TestEnvironmentVariableExpansion(t *testing.T) {
+func TestComplexVariableExpansion(t *testing.T) {
 	// Save test environment variables and restore on exit
-	defer func(oldValue string) {
-		_ = os.Setenv("GO_READER_MONGODB_USER", oldValue)
-	}(os.Getenv("GO_READER_MONGODB_USER"))
+	defer scopedEnvVar("GO_READER_MONGODB_USER")()
+	defer scopedEnvVar("GO_READER_MONGODB_PASSWORD")()
+	defer scopedEnvVar("GO_READER_MONGODB_DATABASE")()
+	defer scopedEnvVar("GO_READER_MONGODB_HOST")()
+	defer scopedEnvVar("GO_READER_MONGODB_URL")()
 
-	defer func(oldValue string) {
-		_ = os.Setenv("GO_READER_MONGODB_PASSWORD", oldValue)
-	}(os.Getenv("GO_READER_MONGODB_PASSWORD"))
-
-	// Find a known setting and replace with environment variable sources
-	pos := strings.Index(goodSettingsJSON, "mongodb://user:pass")
+	// Find a known setting and replace with a data source reference
+	toReplace := "mongodb://user:pass@127.0.0.1:27017/sample_database?replSet=rs0"
+	pos := strings.Index(goodSettingsJSON, toReplace)
 	if pos < 0 {
 		t.Fatalf("unexpected string find failure")
 	}
 
-	source := goodSettingsJSON[0:pos] +
-		"mongodb://${ENV:GO_READER_MONGODB_USER}:${ENV:GO_READER_MONGODB_PASSWORD}" +
-		goodSettingsJSON[pos+19:]
+	// Create the modified version of the settings json
+	modifiedSettingsJSON := bytes.Join([][]byte{
+		([]byte(goodSettingsJSON))[0:pos],
+		[]byte("${ENV:GO_READER_MONGODB_URL}"),
+		([]byte(goodSettingsJSON))[pos+len(toReplace):],
+	}, nil)
+
+	// Setup our complex url which includes a source and environment variables (some embedded).
+	_ = os.Setenv("GO_READER_MONGODB_URL", "mongodb://${SRC:data://${ENV:GO_READER_MONGODB_USER}:${ENV:GO_READER_MONGODB_PASSWORD}}@${ENV:GO_READER_MONGODB_HOST}/${ENV:GO_READER_MONGODB_DATABASE}?replSet=rs0")
 
 	// Save the credentials in environment variables
 	_ = os.Setenv("GO_READER_MONGODB_USER", "user")
 	_ = os.Setenv("GO_READER_MONGODB_PASSWORD", "pass")
 
-	// Load configuration from data stream source
-	settings := TestSettings{}
-	err := cf.Load(cf.Options{
-		Source: "data://" + source,
-		Schema: schemaJSON,
-	}, &settings)
-	if err != nil {
-		t.Fatalf("unable to load settings [%v]", err)
-	}
-
-	// Check if settings are the expected
-	if !reflect.DeepEqual(settings, goodSettings) {
-		t.Fatalf("settings mismatch")
-	}
-}
-
-func TestEmbeddedSourceExpansion(t *testing.T) {
-	// Find a known setting and replace with a data source reference
-	pos := strings.Index(goodSettingsJSON, "mongodb://user:pass")
-	if pos < 0 {
-		t.Fatalf("unexpected string find failure")
-	}
-
-	source := goodSettingsJSON[0:pos] +
-		"mongodb://${SRC:data://user}:${SRC:data://pass}" +
-		goodSettingsJSON[pos+19:]
+	// Also, the host and database name
+	_ = os.Setenv("GO_READER_MONGODB_HOST", "127.0.0.1:27017")
+	_ = os.Setenv("GO_READER_MONGODB_DATABASE", "sample_database")
 
 	// Load configuration from data stream source
 	settings := TestSettings{}
 	err := cf.Load(cf.Options{
-		Source: "data://" + source,
+		Source: "data://" + string(modifiedSettingsJSON),
 		Schema: schemaJSON,
 	}, &settings)
 	if err != nil {
-		t.Fatalf("unable to load settings [%v]", err)
+		t.Fatalf("unable to load settings [err=%v]", err)
 	}
 
 	// Check if settings are the expected

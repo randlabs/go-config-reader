@@ -63,17 +63,21 @@ The `Options` struct accept several modifiers that affects the load operation:
 
 The library contains several predefined loaders to load configuration settings from different locations. They are:
 
-* A file path like `/tmp/settings.json` or in URL format `file:///tmp/settings.json` used to load the configuration settings from the specified file.
-* An http or https URL like `https://configurations.company/network/myapp/settings.json`.
-* An embedded data URL like `data://{ "integerValue": 10, .... }`. A JSON object like `{ "integerValue": 10, .... }` will be also taken as a data URL.
-* A [Hashicorp Vault](https://www.vaultproject.io/) URL using a custom scheme: `vault://server-domain?token={access-token}&path={vault-path}`<br />In this case, the loader will try to reach the `vault-path` secret located at `http://server-domain` using the provided `access-token`.<br /><sub>NOTE: Use `vaults://` to access a server using the `https` protocol.</sub>
+* A file path like `/tmp/settings.json` or in URL format `file:///tmp/settings.json` used to load the configuration settings from the specified file.<br /><br />
+* An http or https URL like `https://configurations.company/network/myapp/settings.json`. <br /><br />
+* An embedded data URL like `data://{ "integerValue": 10, .... }`. A JSON object like `{ "integerValue": 10, .... }` will be also taken as a data URL.<br /><br />
+* A [Hashicorp Vault](https://www.vaultproject.io/) URL using a custom scheme: `vault://server-domain?token={access-token}&path={vault-path}` <br />In this case, the loader will try to reach the `vault-path` secret located at `http://server-domain` using the provided `access-token`.<br /><br />By default, all the keys are read and returned as a JSON object but you can additionally add the `&key={key}` query parameter in order to read the specified value.<br /><br />NOTES:<br />1. `{vault-path}` usually starts with `/secret` or `/secret/data` for KV engines v1 and v2 respectively.<br />2. Use `vaults://` to access a server using the `https` protocol. 
 
 ## Variable expansion
 
 When data is loaded from the provided source, a macro expansion routine is executed. The following macros are processed:
 
-* `${SRC:some-source}`: The loader will attempt to load the data located at `some-source` and replace the macro with it. `some-source` must be in any of the supported source formats.
+* `${SRC:some-source}`: The loader will attempt to load the data located at `some-source` and replace the macro with it. `some-source` must be in any of the supported source formats.<br /><br />
 * `${ENV:some-environment-variable}`: The loader will replace the macro with the content of the environment variable named `some-environment-variable`.
+
+You can also embed macros inside other macros, for example:
+
+`${SRC:vault://my-vault-server.network?token=${ENV:VAULT_ACCESS_TOKEN}&path=/secret/data/mysecret}`
 
 ## LICENSE
 

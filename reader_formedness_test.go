@@ -17,7 +17,7 @@ func TestWellformedWithSchema(t *testing.T) {
 		Schema: schemaJSON,
 	}, &settings)
 	if err != nil {
-		t.Fatalf("unable to load settings [%v]", err)
+		t.Fatalf("unable to load settings [err=%v]", err)
 	}
 
 	if !reflect.DeepEqual(settings, goodSettings) {
