@@ -13,12 +13,9 @@ import (
 // loadFromFile tries to load the content from a file
 func loadFromFile(_ context.Context, source string) ([]byte, error) {
 	// NOTE: We are not making use of the context assuming configuration files will be small and on a local disk
-
 	var err error
 
-	if strings.HasPrefix(source, "file://") {
-		source = source[7:]
-	}
+	source = strings.TrimPrefix(source, "file://")
 
 	// Convert path to absolute
 	if !filepath.IsAbs(source) {

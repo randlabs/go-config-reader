@@ -20,7 +20,7 @@ type ValidationErrorFailure struct {
 
 // -----------------------------------------------------------------------------
 
-var WrongFormatError = errors.New("wrong format")
+var ErrWrongFormat = errors.New("wrong format")
 
 //------------------------------------------------------------------------------
 
@@ -49,6 +49,6 @@ func (e *ValidationError) Error() string {
 	return "unable to load configuration [validation failed" + desc + "]"
 }
 
-func (_ *ValidationError) Unwrap() error {
+func (*ValidationError) Unwrap() error {
 	return nil
 }

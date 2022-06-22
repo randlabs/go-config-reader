@@ -21,7 +21,7 @@ func loadFromHttp(ctx context.Context, source string) ([]byte, error) {
 	var resp *http.Response
 
 	if !(strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://")) {
-		return nil, WrongFormatError
+		return nil, ErrWrongFormat
 	}
 
 	// Create custom http transport
