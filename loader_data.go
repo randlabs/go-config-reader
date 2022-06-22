@@ -25,5 +25,5 @@ func loadFromData(source string) ([]byte, error) {
 		return []byte(source), nil
 	}
 
-	return nil, WrongFormatError
+	return nil, ErrWrongFormat
 }

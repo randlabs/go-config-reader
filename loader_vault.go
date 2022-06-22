@@ -20,7 +20,7 @@ func loadFromVault(ctx context.Context, source string) ([]byte, error) {
 	var buf bytes.Buffer
 
 	if !(strings.HasPrefix(source, "vault://") || strings.HasPrefix(source, "vaults://")) {
-		return nil, WrongFormatError
+		return nil, ErrWrongFormat
 	}
 
 	source = "http" + source[5:]
@@ -138,11 +138,11 @@ func loadFromVault(ctx context.Context, source string) ([]byte, error) {
 		}
 
 		// Check special cases
-		switch value.(type) {
+		switch v := value.(type) {
 		case string:
-			return []byte(value.(string)), nil
+			return []byte(v), nil
 		case *string:
-			return []byte(*(value.(*string))), nil
+			return []byte(*v), nil
 		}
 
 		// Encode the rest
